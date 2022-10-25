@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[])
+{
+    FILE *fin, *fout;
+    unsigned short utf16ch;
+    char ucs1, ucs2, ucs3;
+    int tb = 2, BE = 0;
+
+    if(argc>=2)
+    {
+         if((fin = fopen(argv[2], "r"))==NULL)
+            {
+                fprintf(stderr,"ERROR, CANNOT OPEN AN INPUT FILE.\n");
+                return 1;
+            }
+    }
+    else
+        {fin = stdin;}
+
+    if(argc>=4)
+    {
+        if((fout = fopen(argv[4], "w"))==NULL)
+            {
+                fprintf(stderr,"ERROR, CANNOT OPEN AN OUTPUT FILE.\n");
+                return 2;
+            }
+    }
+    else
+        {fout = stdout;}
+
+    tb = fread(&utf16ch, 1, 2, fin);
+
+    if(utf16ch==0xFEFF)
+        BE++;
+
+    tb = fread(&utf16ch, 1, 2, fin);
+
+    if (tb==1)
+        fprintf(stderr,"ERROR, ODD AMOUNT OF BYTES.\n");
+
+    while (tb==2)
+    {
+        if (BE == 0)
+        {
+            ucs1 = (char)(utf16ch / 256);
+            utf16ch = utf16ch << 8;
+            utf16ch += ucs1;
+        }
+        if (utf16ch < 128)
+        {
+            ucs1 = (char)utf16ch;
+            fputc(ucs1, fout);
+        }
+        else if (utf16ch < 2048)
+        {
+            ucs2 = (char)(utf16ch % 64);
+            ucs2 = ucs2 + 128;
+            utf16ch = utf16ch >> 6;
+
+            ucs1 = (char)(utf16ch);
+            ucs1 = ucs1 + 128 + 64;
+
+            fputc(ucs1, fout);
+            fputc(ucs2, fout);
+        }
+        else
+        {
+            ucs3 = (char)(utf16ch % 64);
+            ucs3 = ucs3 + 128;
+            utf16ch = utf16ch >> 6;
+
+            ucs2 = (char)(utf16ch % 64);
+            ucs2 = ucs2 + 128;
+            utf16ch = utf16ch >> 6;
+
+            ucs1 = (char)(utf16ch);
+            ucs1 = ucs1 + 128 + 64 + 32;
+
+            fputc(ucs1, fout);
+            fputc(ucs2, fout);
+            fputc(ucs3, fout);
+        }
+        tb = fread(&utf16ch, 1, 2, fin);
+    }
+    if (tb == 1)
+        fprintf(stderr,"ERROR, ODD AMOUNT OF BYTES.\n");
+
+    printf("\n");
+
+    fclose(fin);
+    fclose(fout);
+
+    return 0;
+}
