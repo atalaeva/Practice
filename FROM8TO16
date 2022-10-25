@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
             fread(&utf8, 1, 1, fin);
             offset++;
 
-            if ((utf8sym >> 6) == 2)
+            if ((utf8 >> 6) == 2)
             {
                 utf8 = utf8 & 63;
                 utf16 += utf8;
