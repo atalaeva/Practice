@@ -1,0 +1,129 @@
+//RAWVERSION
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void printtext(char**t, int num )
+{
+    for (int i = 0; i<num; i++ )
+    {
+        printf("\n%s", t[i]);
+    }
+}
+int main()
+{
+    char c, c1;
+    char **text = NULL;
+    int cnum = 0,wnum = 0, csize = 4, wsize = 4;
+    int quotesflag = 0, doubleflag = 0;
+    text = malloc(wsize*sizeof(char*));
+    while( (c = getchar())!= EOF)
+    {
+        while(c==' ')
+        {
+            c = getchar();
+        }
+        text[wnum] = malloc(csize*(sizeof(char)));
+        if (c =='"')
+        {
+            quotesflag++;
+            c = getchar();
+        }
+
+        while(( (c!=' ') || (quotesflag%2==1) ) && (c!=EOF))
+        {
+            //& && | || ; > >> < ( )
+            if(((c =='&')|| ( c == '|')||(c == '>')) && (doubleflag == 0))
+            {
+                if(quotesflag%2==1)
+                    return 1;// ERROR "&"
+                doubleflag = 1;
+                c1=c;
+                break;
+            }
+            if(doubleflag == 1)
+            {
+                doubleflag = 0;
+                if((c =='&')|| ( c == '|')||(c == '>'))
+                {
+                    for(int y = 0; y<2;y++)
+                    {
+                        text[wnum][cnum] = c1;
+                        cnum++;
+                    }
+                    break;
+                }
+                else
+                {
+                    text[wnum][cnum] = c1;
+                    cnum++;
+                    text[wnum][cnum] = '\0';
+                    cnum = 0;
+                    csize =4;
+                    wnum++;
+                    if(wsize==(wnum+1))
+                    {
+                        wsize*=2;
+                        text = realloc(text, wsize*(sizeof(char*)));
+                    }
+                    text[wnum] = malloc(csize*(sizeof(char)));
+                }
+            }
+            // ;   < ( )
+            if((c==';')||(c=='<')||(c=='(')||(c==')'))
+            {
+                if(cnum!=0)
+                {
+                    text[wnum][cnum] = '\0';
+                    cnum = 0;
+                    csize =4;
+                    wnum++;
+                    if(wsize==(wnum+1))
+                    {
+                        wsize*=2;
+                        text = realloc(text, wsize*(sizeof(char*)));
+                    }
+                    text[wnum] = malloc(csize*(sizeof(char)));
+                }
+                text[wnum][cnum] = c;
+                cnum++;
+                break;
+            }
+
+            text[wnum][cnum] = c;
+            cnum++;
+            c = getchar();
+
+            if(csize==(cnum+1))
+            {
+                csize*=2;
+                text[wnum] = realloc(text[wnum], csize*sizeof(char));
+            }
+            if (c =='"')
+            {
+                quotesflag++;
+                c = getchar();
+            }
+        }
+        if(cnum==0)
+            continue;
+        text[wnum][cnum] = '\0';
+
+        cnum = 0;
+        csize =4;
+        wnum++;
+        if(wsize==(wnum+1))
+        {
+            wsize*=2;
+            text = realloc(text, wsize*(sizeof(char*)));
+        }
+        if (c==EOF) break;
+    }
+    if(quotesflag%2==1)
+        return 1;
+    printtext(text, wnum);
+    for (int i = 0; i<wnum; i++)
+        free(text[i]);
+    free(text);
+    return 0;
+}
