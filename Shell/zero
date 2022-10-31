@@ -1,42 +1,64 @@
-//RAWVERSION
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void printtext(char**t, int num )
+void printtext(char**t, int num, FILE *fout)
 {
     for (int i = 0; i<num; i++ )
     {
-        printf("\n%s", t[i]);
+        fprintf(fout, "\n%s", t[i]);
     }
+    fprintf(fout, "\n");
 }
-int main()
+int main(int argc, char** argv)
 {
     char c, c1;
     char **text = NULL;
     int cnum = 0,wnum = 0, csize = 4, wsize = 4;
     int quotesflag = 0, doubleflag = 0;
-    text = malloc(wsize*sizeof(char*));
-    while( (c = getchar())!= EOF)
+    FILE *fin, *fout;
+    argv++;
+    if ((*argv != 0) && (strcmp("-i",*argv) == 0))
     {
-        while(c==' ')
+        if ((fin = fopen(*++argv, "r")) == NULL)
+            return 1;
+        argv++;
+    }
+    else
+        fin = stdin; // стандартный ввод
+    if ((*argv != 0) && (strcmp("-o",*argv) == 0))
+    {
+        if ((fout = fopen(*++argv, "w")) == NULL)
+            return 1;
+    }
+    else
+        fout = stdout;
+
+
+    text = malloc(wsize*sizeof(char*));
+    while( (c = getc(fin))!= EOF)
+    {
+        while((c==' ')||(c == '\n'))
         {
-            c = getchar();
+            c = getc(fin);
         }
         text[wnum] = malloc(csize*(sizeof(char)));
         if (c =='"')
         {
             quotesflag++;
-            c = getchar();
+            c = getc(fin);
         }
 
-        while(( (c!=' ') || (quotesflag%2==1) ) && (c!=EOF))
+        while(( (c!=' ') || (quotesflag%2==1) ) && (c!='\n') && (c!=EOF))
         {
             //& && | || ; > >> < ( )
             if(((c =='&')|| ( c == '|')||(c == '>')) && (doubleflag == 0))
             {
                 if(quotesflag%2==1)
-                    return 1;// ERROR "&"
+                {
+                    fprintf(fout, "ERROR\n");
+                    return 1;
+                }
                 doubleflag = 1;
                 c1=c;
                 break;
@@ -92,7 +114,7 @@ int main()
 
             text[wnum][cnum] = c;
             cnum++;
-            c = getchar();
+            c = getc(fin);
 
             if(csize==(cnum+1))
             {
@@ -102,7 +124,7 @@ int main()
             if (c =='"')
             {
                 quotesflag++;
-                c = getchar();
+                c = getc(fin);
             }
         }
         if(cnum==0)
@@ -120,10 +142,16 @@ int main()
         if (c==EOF) break;
     }
     if(quotesflag%2==1)
+    {
+        fprintf(fout, "ERROR\n");
         return 1;
-    printtext(text, wnum);
+    }
+    printtext(text, wnum, fout);
     for (int i = 0; i<wnum; i++)
         free(text[i]);
     free(text);
+
+    fclose(fin);
+    fclose(fout);
     return 0;
 }
