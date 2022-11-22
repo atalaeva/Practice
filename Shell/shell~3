@@ -1,0 +1,317 @@
+//Raw version
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+struct shell
+{
+    char **text;
+    int countcmd;
+    char *in;
+    char *out;
+    char *add;
+    struct shell *nextcmd;
+};
+
+void empty( struct shell *word)
+{
+    word->text = NULL;
+    word->countcmd = 0;
+    word->in = NULL;
+    word->out = NULL;
+    word->add = NULL;
+    word->nextcmd = NULL;
+}
+
+int symbcheck (char *symb);
+{
+    if(strcmp(symb, ">") == 0){
+		return 1;
+	}
+	if(strcmp(symb, "<") == 0){
+		return 2;
+	}
+	if(strcmp(symb, ">>") == 0){
+		return 3;
+	}
+	if(strcmp(symb, "|") == 0){
+		return 4;
+	}
+	return 0;
+}
+struct shell *checkcmd(char ***text)
+{
+    struct shell *word = malloc(sizeof(*word));
+    struct shell *newstruct = word;
+    empty(word);
+    int s, l = 4, i = 0;
+    while( (*text)[i]!=0)
+    {
+        s = symbcheck((*text)[i]);
+        switch (s)
+        {
+            case 0:  //  just a command
+				if (word->text == NULL)
+					word->text = malloc(l*sizeof(char*));
+                if(word->countcmd == l-1)
+                {
+				    l *= 2;
+				    word->text = realloc(word->text, l*sizeof(char*));
+			    }
+				word->text[word->countcmd] = (*text)[i];
+				word->countcmd++;
+				word->text[word->countcmd] = NULL;
+				i++;
+				break;
+			case 1:  // redirect output
+				i++;
+				word->out = (*text)[i];
+				i++;
+				break;
+			case 2:  // redirect output
+				i++;
+				word->in = (*text)[i];
+				i++;
+				break;
+            case 3:  // redirect append
+				i++;
+				word->add = (*text)[i];
+				i++;
+				break;
+			case 4:  // conveyer
+				word->nextcmd = malloc(sizeof(*word));
+				word = word->nextcmd;
+				empty(word);
+				i++;
+				break;
+			default:
+				break;
+        }
+
+    }
+    return newstruct;
+};
+
+
+void cmdexec(struct shell *word)
+{
+    int fd[2];
+    while (word!= NULL)
+    {
+        // cd and exit
+        else
+        {
+            //conveyer
+
+        }
+    }
+}
+
+
+/*void execcmd(char** t)
+{
+    if ( strcmp(t[0], "exit")==0)
+    {
+        exit(3);
+    }
+	if ( strcmp(t[0], "cd")==0)
+    {
+        if ( t[1]== NULL)
+            chdir(getenv("HOME"));
+        else
+            chdir(t[1]);
+    }
+    else
+    {
+    int pid = fork();
+    if(pid == -1)
+    {
+        perror("death1");
+        exit(1);
+    }
+    if( pid == 0)
+    {
+        execvp(t[0], t);
+        perror("death2");
+        exit(2);
+    }
+    else
+        wait(NULL);
+      }
+
+}
+*/
+
+void freestruct(struct shell *word)
+{
+	struct shell *temp;
+	while(word!= NULL)
+    {
+		free(word->text);
+		temp = word;
+		word = word->nextcmd;
+		free(temp);
+	}
+}
+
+int main(int argc, char** argv)
+{
+    char c, c1;
+    char **text = NULL;
+    int cnum = 0,wnum = 0, csize = 4, wsize = 4;
+    int quotesflag = 0, doubleflag = 0;
+    struct shell *word;
+    FILE *fin, *fout;
+    argv++;
+    if ((*argv != 0) && (strcmp("-i",*argv) == 0))
+    {
+        if ((fin = fopen(*++argv, "r")) == NULL)
+            return(1);
+        argv++;
+    }
+    else
+        fin = stdin; // стандартный ввод
+    if ((*argv != 0) && (strcmp("-o",*argv) == 0))
+    {
+        if ((fout = fopen(*++argv, "w")) == NULL)
+            return(1);
+    }
+    else
+        fout = stdout;
+
+
+    text = (char**)malloc(wsize*sizeof(char*));
+    while( (c = getc(fin))!= EOF)
+    {
+        while((c==' ')||(c == '\n'))
+        {
+            c = getc(fin);
+        }
+        text[wnum] = (char*)malloc(csize*(sizeof(char)));
+        if (c =='"')
+        {
+            quotesflag++;;
+            c = getc(fin);
+        }
+
+        while(( (c!=' ') || (quotesflag%2==1) ) && (c!='\n') && (c!=EOF))
+        {
+            //& && | || ; > >> < ( )
+            if(((c =='&')|| ( c == '|')||(c == '>')) && (doubleflag == 0))
+            {
+                if(quotesflag%2==1)
+                {
+                    fprintf(fout, "ERROR\n");
+                    return 1;
+                }
+                doubleflag = 1;
+                c1=c;
+                break;
+            }
+            if(doubleflag == 1)
+            {
+                doubleflag = 0;
+                if((c =='&')|| ( c == '|')||(c == '>'))
+                {
+                    for(int y = 0; y<2;y++)
+                    {
+                        text[wnum][cnum] = c1;
+                        cnum++;
+                    }
+                    break;
+                }
+                else
+                {
+                    text[wnum][cnum] = c1;
+                    cnum++;
+                    text[wnum][cnum] = '\0';
+                    cnum = 0;
+                    csize =4;
+                    wnum++;
+                    if(wsize==(wnum+1))
+                    {
+                        wsize*=2;
+                        text = (char**)realloc(text, wsize*(sizeof(char*)));
+                    }
+                    text[wnum] =(char*) malloc(csize*(sizeof(char)));
+                }
+            }
+            // ;   < ( )
+            if((c==';')||(c=='<')||(c=='(')||(c==')'))
+            {
+                if(cnum!=0)
+                {
+                    text[wnum][cnum] = '\0';
+                    cnum = 0;
+                    csize =4;
+                    wnum++;
+                    if(wsize==(wnum+1))
+                    {
+                        wsize*=2;
+                        text = (char**)realloc(text, wsize*(sizeof(char*)));
+                    }
+                    text[wnum] = (char*)malloc(csize*(sizeof(char)));
+                }
+                text[wnum][cnum] = c;
+                cnum++;
+                break;
+            }
+
+            text[wnum][cnum] = c;
+            cnum++;
+            c = getc(fin);
+
+            if(csize==(cnum+1))
+            {
+                csize*=2;
+                text[wnum] = (char*)realloc(text[wnum], csize*sizeof(char));
+            }
+            if (c =='"')
+            {
+                quotesflag++;
+                c = getc(fin);
+            }
+        }
+        if(c == '\n' && (quotesflag%2)!=1)
+        {
+            text[wnum][cnum] = '\0';
+            wnum++;
+            text[wnum] = NULL;
+
+            word = checkcmd(&text);
+            if(word && word->text)
+                cmdexec(word);
+            freestruct(word);
+
+            //execcmd(text);
+            for(int i = 0; i<wnum; i++)
+                free(text[i]);
+            cnum = 0; wnum = 0; csize = 4; wsize = 4;
+            continue;
+        }
+        if(cnum==0)
+            continue;
+        text[wnum][cnum] = '\0';
+
+        cnum = 0;
+        csize =4;
+        wnum++;
+        if(wsize==(wnum+1))
+        {
+            wsize*=2;
+            text = (char**)realloc(text, wsize*(sizeof(char*)));
+        }
+        if (c==EOF) break;
+    }
+    if(quotesflag%2==1)
+    {
+        fprintf(fout, "ERROR\n");
+        return 1;
+    }
+    free(text);
+    fclose(fin);
+    fclose(fout);
+    return 0;
+}
