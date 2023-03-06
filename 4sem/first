@@ -1,0 +1,124 @@
+#include <iostream>
+#include <cstring>
+using namespace std;
+
+class address {
+    char* street;
+    int housenumber;
+    char* city;
+    char* country;
+public:
+    address() {
+        street = new char[1];
+        street[0] = '\0';
+        housenumber = 0;
+        city = new char[1];
+        city[0] = '\0';
+        country = new char[1];
+        country[0] = '\0';
+    }
+
+    address(char* _street, int _housenumber, char* _city, char* _country) {
+        street = new char[strlen(_street) + 1];
+        strcpy(street, _street);
+        housenumber = _housenumber;
+        city = new char[strlen(_city) + 1];
+        strcpy(city, _city);
+        country = new char[strlen(_country) + 1];
+        strcpy(country, _country);
+    }
+
+    ~address() {
+        delete[] street;
+        delete[] city;
+        delete[] country;
+    }
+
+    void setStreet(char* _street) {
+        delete[] street;
+        street = new char[strlen(_street) + 1];
+        strcpy(street, _street);
+    }
+    void setHousenumber(int _housenumber) {
+        housenumber = _housenumber;
+    }
+    void setCity(char* _city) {
+        delete[] city;
+        city = new char[strlen(_city) + 1];
+        strcpy(city, _city);
+    }
+    void setCountry(char* _country) {
+        delete[] country;
+        country = new char[strlen(_country) + 1];
+        strcpy(country, _country);
+    }
+
+    void print() {
+        cout << "Street: " << street << endl;
+        cout << "House number: " << housenumber << endl;
+        cout << "City: " << city << endl;
+        cout << "Country: " << country << endl;
+    }
+};
+
+int main() {
+    char street[100], city[100], country[100];
+    int housenumber;
+    cout << "Enter street: ";
+    cin >> street;
+    cout << "Enter house number: ";
+    cin >> housenumber;
+    cout << "Enter city: ";
+    cin >> city;
+    cout << "Enter country: ";
+    cin >> country;
+
+    cout<<endl;
+
+    address addr(street, housenumber, city, country);
+    int choice;
+    do {
+        cout << "1. Change street" << endl;
+        cout << "2. Change house number" << endl;
+        cout << "3. Change city" << endl;
+        cout << "4. Change country" << endl;
+        cout << "5. Print address" << endl;
+        cout << "6. Exit" << endl;
+        cout << "Enter choice: "<<endl;
+        cin >> choice;
+        switch (choice) {
+            case 1:
+                cout << "Enter new street: ";
+                cin >> street;
+                addr.setStreet(street);
+                break;
+            case 2:
+                cout << "Enter new house number: ";
+                cin >> housenumber;
+                addr.setHousenumber(housenumber);
+                break;
+            case 3:
+                cout << "Enter new city: ";
+                cin >> city;
+                addr.setCity(city);
+                break;
+	    case 4:
+		    cout << "Enter new country: ";
+		    cin >> country;
+		    addr.setCountry(country);
+		    break;
+		case 5:
+		    addr.print();
+		    break;
+		case 6:
+		    break;
+		default:
+		    cout << "Invalid choice" << endl;
+		    break;
+	    }
+	    cout<<endl;
+	} while (choice != 6);
+
+	return 0;
+
+}
