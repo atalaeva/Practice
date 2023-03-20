@@ -1,0 +1,104 @@
+/*Написать программу на Си. Реализовать некоторый абстрактный класс, удовлетворяюший следующим обязательным требованиям:
+1)класс неплоский
+2)класс содержит явно описанные : конструктор копирования, деструктор, перегруженную операцию присваивания,
+статические члены класса, константные методы, перегруженную операцию вывода объекта в стандартный поток вывода,
+перегруженную операцию [] или () (если их использование не противоречит структуре выбранного класса).
+В качестве варианта класса можно рассматривать: "растение их деление и поливка".#include <iostream>
+*/
+#include <iostream>
+#include <cstring>
+
+using namespace std;
+
+class Plants{
+protected:
+    char *name;
+public:
+    virtual double volume() = 0;
+    Plants(const char *name_)
+    {
+        name = new char[strlen(name_) + 1];
+        strcpy(name, name_);
+    }
+    ~Plants(){
+    delete[] name;
+    }
+};
+//фикусы
+class Ficus: public Plants{
+    int height;
+    double area;
+public:
+    Ficus(char *n, int h, double a): Plants(n)
+    {
+        height = h;
+        area = a;
+    }
+    Ficus(const Ficus &ficu) : Plants(ficu.name)
+    {
+        height = ficu.height;
+        area = ficu.area;
+    }
+    double volume(){
+        return 2*height+5*area;
+    }
+    Ficus operator=(const Ficus & ficu)
+    {
+        name = new char[strlen(ficu.name) + 1];
+        strcpy(name, ficu.name);
+        height = ficu.height;
+        area = ficu.area;
+        return *this;
+    }
+    friend ostream& operator<<(ostream &os, const Ficus &ficu)
+    {
+        os << ficu.name << " " <<ficu.height<<" "<<ficu.area<<endl;
+        return os;
+    }
+};
+//фиалки
+class Violet: public Plants{
+    int lev_of_br, numb_of_fl; // level of brightness and number of flowers
+public:
+    Violet(char *n, int lob, double nof): Plants(n)
+    {
+        lev_of_br = lob;
+        numb_of_fl = nof;
+    }
+    Violet(const Violet & viola) : Plants(viola.name)
+    {
+        lev_of_br = viola.lev_of_br;
+        numb_of_fl = viola.numb_of_fl;
+    }
+    double volume(){
+        return lev_of_br*5+numb_of_fl*2;
+    }
+    Violet operator=(const Violet & viola)
+    {
+        name = new char[strlen(viola.name) + 1];
+        strcpy(name, viola.name);
+        lev_of_br = viola.lev_of_br;
+        numb_of_fl = viola.numb_of_fl;
+        return *this;
+    }
+    friend ostream& operator<<(ostream &os, const Violet &viola)
+    {
+        os << viola.name << " " <<viola.lev_of_br<<" "<<viola.numb_of_fl<<endl;
+        return os;
+    }
+};
+int main()
+{
+    Plants *plants[3];
+    Violet Marina("Marina", 5, 25);
+    Violet Olga("Olga", 2, 52);
+    Ficus Anton("Anton", 3, 10.5);
+    plants[0] = &Marina;
+    plants[1] = &Olga;
+    plants[2] = &Anton;
+    double total_volume;
+    for (int i = 0; i < 3; i++)
+        total_volume += plants[i]->volume();
+    cout <<"You need "<<total_volume<< " liters for today.";
+    return 0;
+}
