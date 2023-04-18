@@ -1,0 +1,245 @@
+/*2.	I.  0	II.  1  	III.  1 	IV.  2	V.  2	VI.  1
+1. 〈оператор〉 → do 〈оператор〉 while (〈выражение〉) ;
+1. 〈оператор〉 → 〈помеченный оператор〉 | goto 〈идентификатор〉 ; 
+〈помеченный оператор〉 → 〈идентификатор〉 : 〈оператор〉
+2. 〈тип〉 → real 
+〈константа〉 → 〈вещественная〉 
+〈вещественная〉 → [〈знак〉] 〈целая часть〉.〈дробная часть〉
+〈целая часть〉 → 〈цифра〉 { 〈цифра〉 }
+〈дробная часть〉 → 〈цифра〉 { 〈цифра〉 }
+2. унарные минус и плюс, 
+1. «Ленивые» вычисления логических выражений (слева направо; до тех пор, 
+пока не станет известно значение выражения).*/
+
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cstring>
+#include <vector>
+
+using namespace std;
+
+enum LexemeType
+{
+    lex_program,
+    lex_int, lex_real, lex_string,
+    lex_if, lex_else,
+    lex_do, lex_while,
+    lex_read, lex_write,
+    lex_goto,
+    lex_and, lex_or, lex_not,
+
+    lex_plus, lex_minus, lex_mul, lex_div,
+    lex_assign,
+    lex_less, lex_greater, lex_equal, lex_le, lex_ge, lex_ne,
+    lex_comma, lex_period, lex_colon, lex_semicolon,
+    lex_left_bracket, lex_right_bracket,
+    lex_left_curly, lex_right_curly,
+
+    lex_number, lex_string_literal,
+    lex_ident,
+
+    lex_null
+};
+
+const char* keywords[] = {
+        "program",
+        "int", "real", "string",
+        "if", "else",
+        "do", "while",
+        "read", "write",
+        "goto",
+        "and", "or", "not", nullptr
+};
+const char* separators[] = {
+        "+", "-", "*", "/",
+        "=",
+        "<", ">", "==", "<=", ">=", "!=",
+        ",", ".", ":", ";",
+        "(", ")", "{", "}", nullptr
+};
+vector<char*> idents;
+vector<string> str_literals;
+
+struct Lexeme
+{
+    LexemeType type;
+    int data;
+    Lexeme(LexemeType t=lex_null, int d=0) : type(t), data(d) {}
+    friend ostream& operator<<(ostream& stream, Lexeme lex)
+    {
+        stream << lex.type <<": ";
+        if (lex.type < 14)              //keywords
+            stream << keywords[lex.data];
+        else if (lex.type < 33)           //separators
+            stream << separators[lex.data];
+        else if (lex.type == lex_number)
+            stream << lex.data;
+        else if (lex.type == lex_string_literal)
+            stream << str_literals[lex.data];
+        else
+            stream << idents[lex.data];
+        return stream;
+    }
+};
+
+int indfind(const char* a, const char** b)// a - string that we are looking for in array b
+{
+    int i = 0;
+    while((b[i]!= nullptr) && (strcmp(a, b[i]) != 0))
+        i++;
+    if (b[i] == nullptr)
+        return -1;
+    else
+        return i;
+}
+
+Lexeme lex_get(istream& in)
+{
+    enum state{ start, what, numb, comm, strstate, separ};
+    state Maryam = start;
+    char c;
+    char mas[25], nummas = 0;
+    int zif;
+    string const_str;
+    do
+    {
+        in.get(c);
+        switch(Maryam)
+        {
+            case start:
+                if(in.eof())
+                {
+                    return Lexeme(lex_null, 0);
+                }
+                else if(isalpha(c))
+                {
+                    mas[nummas] = c;
+                    nummas++;
+                    Maryam = what;
+                }
+                else if (isdigit(c))
+                {
+                    zif = c-'0';
+                    Maryam = numb;
+                }
+                else if(c == '"')
+                {
+                    Maryam = strstate;
+                }
+                else if (c == '/')
+                {
+                    if(in.peek() == '*')
+                    {
+                        in.get();
+                        Maryam = comm;
+                    }
+                    else
+                    {
+                        in.unget();
+                        Maryam = separ;
+                    }
+                }
+                else if (ispunct(c))
+                {
+                    in.unget();
+                    Maryam = separ;
+                }
+                break;
+            case what:
+                if(isalnum(c))
+                {
+                    mas[nummas] = c;
+                    nummas++;
+                }
+                else
+                {
+                    mas[nummas] = '\0';
+                    in.unget();
+                    int f = indfind(mas, keywords);
+                    if( f== -1)
+                    {
+                        char* tmp = new char[nummas];
+                        strcpy(tmp, mas);
+                        idents.push_back(tmp);
+                        return Lexeme(lex_ident, idents.size() - 1);
+                    }
+                    else
+                    {
+                        return Lexeme((LexemeType)f,f);
+                    }
+                }
+                break;
+            case numb:
+                if (isdigit(c))
+                {
+                    zif = zif * 10 + ( c - '0' );
+                }
+                else
+                {
+                    in.unget();
+                    return Lexeme(lex_number, zif);
+                }
+                break;
+            case comm:
+                if(in.eof())// eof
+                {
+                    throw 1;
+                }
+                else if(c=='*' && in.peek() == '/')
+                {
+                    in.get();
+                    Maryam = start;
+                }
+                break;
+            case strstate:
+                if(in.eof())// eof
+                {
+                    throw 2;
+                }
+                else if(c!='"')
+                {
+                    const_str += c;
+                }
+                else
+                {
+                    str_literals.push_back(const_str);
+                    return Lexeme(lex_string_literal, str_literals.size() - 1);
+                }
+                break;
+            case separ:
+                char sep[3];
+                sep[0] = c;
+                if (c == '=' || c == '<' || c == '>' || c == '!')
+                {
+                    if (in.peek() == '=')
+                    {
+                        in.get(sep[1]);
+                        sep[2] = '\0';
+                    }
+                    else if (c == '!')
+                        throw 3;
+                    else
+                        sep[1] = '\0';
+                }
+                int f = indfind(sep, separators);
+                return Lexeme((LexemeType)(f + 14), f);
+        }
+    }while(true);
+}
+
+
+int main()
+{
+    ifstream in("abcdefu.txt");
+    Lexeme lex;
+    while (true)
+    {
+        lex = lex_get(in);
+        if (lex.type == lex_null)
+            break;
+        else
+            cout << lex << endl;
+    }
+    return 0;
+}
