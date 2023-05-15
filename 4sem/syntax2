@@ -1,4 +1,4 @@
-NOT FINISHED
+
 
 
 
@@ -228,6 +228,7 @@ Lexeme lex_get(istream& in)
             case separ:
                 char sep[3];
                 sep[0] = c;
+                sep[1] = '\0';
                 if (c == '=' || c == '<' || c == '>' || c == '!')
                 {
                     if (in.peek() == '=')
@@ -237,8 +238,6 @@ Lexeme lex_get(istream& in)
                     }
                     else if (c == '!')
                         throw 3;
-                    else
-                        sep[1] = '\0';
                 }
                 int f = indfind(sep, separators);
                 return Lexeme((LexemeType)(f + 14), f);
@@ -247,8 +246,14 @@ Lexeme lex_get(istream& in)
 }
 
 
+
+
 class Parser{
     Lexeme curr_lex;
+    Lexeme next_lex;
+    bool checkkk;
+    void gettt();
+
     void program();
     void declaration();
     bool type();
@@ -256,27 +261,39 @@ class Parser{
     void constanta();
 
     bool operatorr();
-    bool expression();
-    void logexpression();
+    void expression();
 
 
-    //for experssion
-    void terma;
-    void factor;
+    //for expression
+    void terma();
+    void factor();
+    void e1();
 
-    //for logexpression
-    void logterma;
-    void logfactor;
 
- //   void funcforeasylife()
 public:
     void analyze();
-
+    Parser():checkkk(false){}
 };
+
+
+void Parser::gettt()
+{
+    if(checkkk)
+    {
+        curr_lex = next_lex;
+        checkkk = false;
+    }
+    else
+    {
+        curr_lex = lex_get(in);
+    }
+}
+
+
 
 void Parser::analyze()
 {
-    curr_lex = lex_get(in);
+    gettt();
     program();
     if(curr_lex.type==lex_null)
         cout<<"Everything is good))))) good job analyzer"<<endl;
@@ -289,17 +306,17 @@ void Parser::analyze()
 void Parser::program()
 {
     if (curr_lex.type == lex_program)
-        curr_lex = lex_get(in);
+        gettt();
     else
         throw "program is absent!!!";
     if (curr_lex.type == lex_left_curly)
-        curr_lex = lex_get(in);
+        gettt();
     else
         throw "{ is absent!!!";
     declaration();
     while(operatorr());
     if (curr_lex.type == lex_right_curly)
-        curr_lex = lex_get(in);
+        gettt();
     else
         throw "} is absent!!!";
 
@@ -312,7 +329,7 @@ void Parser::declaration()
         variable();
         while(curr_lex.type == lex_comma)
         {
-            curr_lex = lex_get(in);
+            gettt();
             variable();
         }
         if(curr_lex.type == lex_semicolon)
@@ -326,7 +343,7 @@ bool Parser::type()
 {
     if(curr_lex.type == lex_int || curr_lex.type == lex_string)
     {
-        curr_lex = lex_get(in);
+        gettt();
         return true;
     }
     else
@@ -336,12 +353,12 @@ bool Parser::type()
 void Parser::variable()
 {
     if(curr_lex.type == lex_ident)
-        curr_lex = lex_get(in);
+        gettt();
     else
         throw "ident is absent!!!";
     if (curr_lex.type == lex_assign)
     {
-        curr_lex = lex_get(in);
+        gettt();
         constanta();
     }
 }
@@ -349,7 +366,7 @@ void Parser::variable()
 void Parser::constanta()
 {
     if(curr_lex.type == lex_number || curr_lex.type == lex_string_literal)
-        curr_lex = lex_get(in);
+        gettt();
     else
         throw "wrong!!!!!";
 }
@@ -358,73 +375,73 @@ bool Parser::operatorr()
 {
     if(curr_lex.type == lex_if)
     {
-        curr_lex = lex_get(in);
+        gettt();
         if(curr_lex.type == lex_left_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "( is absent!!!";
-        logexpression();
+        expression();
         if(curr_lex.type == lex_right_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
-            throw ") is absent!!!";
+            throw "1) is absent!!!";
         operatorr();
         if(curr_lex.type == lex_else)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "else is absent!!!";
         operatorr();
     }
     else if(curr_lex.type == lex_while)
     {
-        curr_lex = lex_get(in);
+        gettt();
         if(curr_lex.type == lex_left_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "( is absent!!!";
-        logexpression();
+        expression();
         if(curr_lex.type == lex_right_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
-            throw ") is absent!!!";
+            throw "2) is absent!!!";
         operatorr();
     }
     else if(curr_lex.type==lex_read)
     {
-        curr_lex = lex_get(in);
+        gettt();
         if(curr_lex.type == lex_left_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "( is absent!!!";
         if(curr_lex.type == lex_ident)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "ident is absent!!!";
         if(curr_lex.type == lex_right_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
-            throw ") is absent!!!";
+            throw "3) is absent!!!";
         if(curr_lex.type == lex_semicolon)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "; is absent!!!";
     }
     else if(curr_lex.type == lex_write)
     {
         if(curr_lex.type == lex_left_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "( is absent!!!";
         expression();
         while(curr_lex.type == lex_comma)
         {
-            curr_lex = lex_get(in);
+            gettt();
             expression();
         }
         if(curr_lex.type == lex_right_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
-            throw ") is absent!!!";
+            throw "4) is absent!!!";
         if(curr_lex.type == lex_semicolon)
             curr_lex =lex_get(in);
         else
@@ -432,23 +449,24 @@ bool Parser::operatorr()
     }
     else if (curr_lex.type ==lex_left_curly)
     {
-        curr_lex = lex_get(in);
+        gettt();
         while(operatorr());
         if(curr_lex.type == lex_right_curly)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "} is absent!!!";
     }
-    else if(expression())
+    else if(curr_lex.type==lex_ident || curr_lex.type==lex_left_bracket ||
+        curr_lex.type==lex_number || curr_lex.type==lex_string_literal)
     {
+        expression();
         if(curr_lex.type == lex_semicolon)
-            curr_lex = lex_get(in);
+            gettt();
         else
             throw "; is absent!!!";
-
     }
     else if(curr_lex.type == lex_semicolon)
-        curr_lex = lex_get(in);
+        gettt();
     else
         return false;
     return true;
@@ -456,46 +474,74 @@ bool Parser::operatorr()
 
 
 
-bool Parser::expression()
+
+ void Parser::expression()
+{
+    if(curr_lex.type == lex_ident)
+    {
+        next_lex = lex_get(in);
+        checkkk = true;
+        if(next_lex.type == lex_assign)
+        {
+            gettt();
+            gettt();
+            expression();
+            return;
+        }
+    }
+    e1();
+    if(curr_lex.type == lex_less || curr_lex.type == lex_greater ||curr_lex.type == lex_equal ||
+       curr_lex.type == lex_le|| curr_lex.type == lex_ge ||curr_lex.type == lex_ne)
+    {
+        gettt();
+        e1();
+    }
+}
+
+
+void Parser::e1()
 {
     terma();
-    while(curr_lex.type == lex_plus || curr_lex.type == lex_minus)
+    while(curr_lex.type == lex_plus || curr_lex.type == lex_minus ||curr_lex.type == lex_or)
+    {
+        gettt();
         terma();
+    }
+
 }
 
 void Parser::terma()
 {
     factor();
-    while(curr_lex.type == lex_div || curr_lex.type == lex_mul)
+    while(curr_lex.type == lex_div || curr_lex.type == lex_mul || curr_lex.type == lex_and)
+    {
+        gettt();
         factor();
+    }
 }
 
 void Parser::factor()
 {
     if(curr_lex.type == lex_ident || curr_lex.type == lex_number ||
-       curr_lex.type == lex_string_literal)
-        curr_lex = lex_get(in);
+       curr_lex.type == lex_string_literal || curr_lex.type == lex_not)
+        gettt();
     else if(curr_lex.type == lex_left_bracket)
     {
-        curr_lex = lex_get(in);
+        gettt();
         expression();
         if(curr_lex.type == lex_right_bracket)
-            curr_lex = lex_get(in);
+            gettt();
         else
-            throw ") is absent!!!";
+            throw "5) is absent!!!";
     }
 }
 
 
-void Parser::logexpression()
-{
-
-}
 
 int main()
 {
     Parser marpar;
-    try {marpar.analyze()}
+    try {marpar.analyze();}
     catch (int err)
     {
         cout << err << endl;
