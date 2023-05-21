@@ -1,0 +1,895 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cstring>
+#include <vector>
+#include <algorithm>
+#include <stack>
+
+using namespace std;
+
+ifstream in("abcdefu.txt");
+
+enum LexemeType
+{
+    lex_program,
+    lex_int, lex_real, lex_string, lex_bool,
+    lex_false, lex_true,
+    lex_if, lex_else,
+    lex_do, lex_while, lex_break,
+    lex_read, lex_write,
+    lex_goto,
+    lex_and, lex_or, lex_not,
+
+    lex_plus, lex_minus, lex_mul, lex_div, lex_mod,
+    lex_assign,
+    lex_less, lex_greater, lex_equal, lex_le, lex_ge, lex_ne,
+    lex_comma, lex_period, lex_colon, lex_semicolon,
+    lex_left_bracket, lex_right_bracket,
+    lex_left_curly, lex_right_curly,
+
+    lex_number, lex_string_literal,
+    lex_ident,
+
+    poliz_label, poliz_address, poliz_go, poliz_fgo, // Для Полиза
+    lex_null
+};
+
+const char *keywords[] = {
+        "program",
+        "int", "real", "string", "boolean",
+        "false", "true",
+        "if", "else",
+        "do", "while", "break",
+        "read", "write",
+        "goto",
+        "and", "or", "not", nullptr
+};
+const char *separators[] = {
+        "+", "-", "*", "/", "%",
+        "=",
+        "<", ">", "==", "<=", ">=", "!=",
+        ",", ".", ":", ";",
+        "(", ")", "{", "}", nullptr
+};
+
+class Ident
+{
+    string name;
+    LexemeType type;
+    bool declare;
+    int value;
+public:
+    Ident(const string n) : name(n), type(lex_null), declare(false), value(0) {}
+    string get_name() const { return name; }
+    LexemeType get_type() { return type; }
+    void put_type(LexemeType t) { type = t; }
+    bool get_declare() const { return declare; }
+    void put_declare() { declare = true; }
+    int get_value() { return value; }
+    void put_value(int v) { value = v; }
+    bool operator==(const string &s) const { return name == s; }
+};
+
+vector<Ident> idents;
+vector<string> str_literals;
+
+int put(const string &buf) // Функция, чтобы класть в вектор значения
+{
+    for (int i = 0; i < idents.size(); i++)
+        if (idents[i] == buf)
+            return i;
+    idents.push_back(Ident(buf));
+    return idents.size() - 1;
+}
+
+struct Lexeme
+{
+    LexemeType type;
+    int data;
+    Lexeme(LexemeType t = lex_null, int d = 0) : type(t), data(d) {}
+
+    friend ostream &operator<<(ostream &stream, Lexeme lex)
+    {
+        if (lex.type < 18) //keywords
+            stream << keywords[lex.type];
+        else if (lex.type < 38)//separators
+            stream << separators[lex.type - 18];
+        else if (lex.type == lex_number)
+            stream << lex.data;
+        else if (lex.type == lex_string_literal)
+            stream << str_literals[lex.data];
+        else if (lex.type == poliz_label)
+            stream << to_string(lex.data);
+        else if (lex.type == poliz_address)
+            stream << idents[lex.data].get_name();
+        else if (lex.type == poliz_go)
+            stream << "!";
+        else if (lex.type == poliz_fgo)
+            stream << "!F";
+        else if (lex.type == lex_ident)
+            stream << idents[lex.data].get_name();
+        stream << " ";
+        return stream;
+    }
+};
+
+int indfind(const char *a, const char **b)// a - string that we are looking for in array b
+{
+    int i = 0;
+    while ((b[i] != nullptr) && (strcmp(a, b[i]) != 0))
+        i++;
+    if (b[i] == nullptr)
+        return -1;
+    else
+        return i;
+}
+
+Lexeme lex_get(istream &in)
+{
+    enum state { start, what, numb, comm, strstate, separ };
+    state Maryam = start;
+    char c;
+    char mas[25];
+    int nummas = 0;
+    int zif;
+    string const_str;
+    do
+    {
+        in.get(c);
+        switch (Maryam)
+        {
+            case start:
+                if (in.eof())
+                {
+                    return Lexeme(lex_null, 0);
+                }
+                else if (isspace(c));
+                else if (isalpha(c))
+                {
+                    mas[nummas] = c;
+                    nummas++;
+                    Maryam = what;
+                }
+                else if (isdigit(c))
+                {
+                    zif = c - '0';
+                    Maryam = numb;
+                }
+                else if (c == '"')
+                {
+                    Maryam = strstate;
+                }
+                else if (c == '/')
+                {
+                    if (in.peek() == '*')
+                    {
+                        in.get();
+                        Maryam = comm;
+                    }
+                    else
+                    {
+                        in.unget();
+                        Maryam = separ;
+                    }
+                }
+                else if (c == '+' || c == '-' || c == '*' || c == '/' ||
+                           c == '=' || c == '<' || c == '>' || c == '!' ||
+                           c == ',' || c == '.' || c == ':' || c == ';' ||
+                           c == '(' || c == ')' || c == '{' || c == '}' )
+
+                {
+                    in.unget();
+                    Maryam = separ;
+                }
+                else throw 25;
+                break;
+            case what:
+                if (in.eof())
+                {
+                    mas[nummas] = '\0';
+                    int f = indfind(mas, keywords);
+                    if (f == -1)
+                    {
+                        char *tmp = new char[nummas];
+                        strcpy(tmp, mas);
+                        int ind = put(tmp);
+                        return Lexeme(lex_ident, ind);
+                    }
+                    else
+                    {
+                        return Lexeme((LexemeType) f, f);
+                    }
+                }
+                else if (isalnum(c))
+                {
+                    mas[nummas] = c;
+                    nummas++;
+                }
+                else
+                {
+                    mas[nummas] = '\0';
+                    in.unget();
+                    int f = indfind(mas, keywords);
+                    if (f == -1)
+                    {
+                        char *tmp = new char[nummas];
+                        strcpy(tmp, mas);
+                        int ind = put(tmp);
+                        return Lexeme(lex_ident, ind);
+                    }
+                    else
+                    {
+                        return Lexeme((LexemeType) f, f);
+                    }
+                }
+                break;
+            case numb:
+                if (in.eof())
+                    return Lexeme(lex_number, zif);
+                else if (isdigit(c))
+                {
+                    zif = zif * 10 + (c - '0');
+                }
+                else
+                {
+                    in.unget();
+                    return Lexeme(lex_number, zif);
+                }
+                break;
+            case comm:
+                if (in.eof())// eof
+                {
+                    throw 1;
+                }
+                else if (c == '*' && in.peek() == '/')
+                {
+                    in.get();
+                    Maryam = start;
+                }
+                break;
+            case strstate:
+                if (in.eof())// eof
+                    throw 2;
+                else if (c != '"')
+                    const_str += c;
+                else
+                {
+                    str_literals.push_back(const_str);
+                    return Lexeme(lex_string_literal, str_literals.size() - 1);
+                }
+                break;
+            case separ:
+                char sep[3];
+                sep[0] = c;
+                sep[1] = '\0';
+                if (c == '=' || c == '<' || c == '>' || c == '!')
+                {
+                    if (in.peek() == '=')
+                    {
+                        in.get(sep[1]);
+                        sep[2] = '\0';
+                    }
+                    else if (c == '!')
+                        throw 3;
+                }
+                int f = indfind(sep, separators);
+                return Lexeme((LexemeType) (f + 18), f);
+        }
+    } while (true);
+}
+
+class Poliz
+{
+    Lexeme *p = nullptr;
+    int size;
+    int free;
+public:
+    Poliz(int max_size)
+    {
+        p = new Lexeme[max_size];
+        size = max_size;
+        free = 0;
+    }
+    ~Poliz() { delete[] p; }
+    void put_lex(Lexeme l)
+    {
+        p[free] = l;
+        free++;
+    }
+    LexemeType get_c_type() { return p[free - 1].type; }
+    void put_lex(Lexeme l, int place) { p[place] = l; }
+    void blank() { free++; }
+    int get_free() const { return free; }
+    Lexeme &operator[](int ident)
+    {
+        if (ident > size)
+            throw "out of array!!!";
+        if (ident > free)
+            throw "indefine element of array!!!";
+        return p[ident];
+    }
+    void print()
+    {
+        for (int i = 0; i < free; i++)
+            std::cout << p[i];
+    }
+};
+
+class Parser
+{
+    Lexeme curr_lex;
+    Lexeme next_lex;
+    bool checkkk;
+
+    int type_id;
+    stack<int> st_int;
+    stack<LexemeType> st_lex;
+
+    void idtype_res() { type_id = 0;}
+    void idtype_boolean() { type_id = 1;}
+    void idtype_int() { type_id = 2;}
+    void idtype_string() { type_id = 3;}
+    void idtype_real() { type_id = 4;}
+
+    vector<Lexeme> poliz;
+    vector<int> st_while;
+    vector<int> fin_while;
+
+    void gettt();
+    void set_idtype();
+
+    void program();
+    void declaration();
+    bool type();
+
+    void dec(LexemeType type);
+    void check_id(); // Декларирован ли идентефикатор
+    void check_op(); // Правильно ли записаны операнды для совершения операции
+    void check_not(); // Является ли операнд bool
+    void eq_type();
+    void eq_bool();
+    void check_id_in_read();
+    void ex();
+
+    void expr();
+    void variable();
+    void constanta();
+    bool operatorr();
+
+    //for expression
+    void terma();
+    void factor();
+    void e1();
+public:
+    void analyze();
+    Parser() : checkkk(false) {}
+};
+
+void Parser::set_idtype()
+{
+    idtype_res();
+    if (curr_lex.type == lex_bool)
+        idtype_boolean();
+    else if (curr_lex.type == lex_int)
+        idtype_int();
+    else if (curr_lex.type == lex_string)
+        idtype_string();
+    else if (curr_lex.type == lex_real)
+        idtype_real();
+}
+
+void Parser::gettt()
+{
+    if (checkkk)
+    {
+        curr_lex = next_lex;
+        checkkk = false;
+    }
+    else
+        curr_lex = lex_get(in);
+}
+
+
+void Parser::analyze()
+{
+    gettt();
+    program();
+    if (curr_lex.type == lex_null)
+    {
+        for (Lexeme lex: poliz)// Вывод полиза
+            cout << lex;
+        cout << "Everything is good))))) good job analyzer" << endl;
+    }
+    else
+        throw "Everything is bad";
+}
+
+void Parser::program()
+{
+    if (curr_lex.type == lex_program)
+        gettt();
+    else
+        throw "program is absent!!!";
+    if (curr_lex.type == lex_left_curly)
+        gettt();
+    else
+        throw "{ is absent!!!";
+    declaration();
+    while (operatorr());
+    if (curr_lex.type == lex_right_curly)
+        gettt();
+    else
+        throw "} is absent!!!";
+}
+
+void Parser::declaration()
+{
+    while (type())
+    {
+        variable();
+        while (curr_lex.type == lex_comma)
+        {
+            gettt();
+            variable();
+        }
+        if (curr_lex.type == lex_semicolon)
+            curr_lex = lex_get(in);
+        else
+            throw "; is absent!!!";
+    }
+}
+
+bool Parser::type()
+{
+    if (curr_lex.type == lex_int || curr_lex.type == lex_string || curr_lex.type == lex_bool ||
+        curr_lex.type == lex_real)
+    {
+        set_idtype();
+        gettt();
+        return true;
+    }
+    else
+        return false;
+}
+
+void Parser::variable()
+{
+    if (curr_lex.type == lex_ident)
+    {
+        st_int.push(curr_lex.data);
+        poliz.push_back(Lexeme(lex_ident, idents.size() - 1));
+        if (type_id == 1)
+        {
+            dec(lex_bool);
+            st_lex.push(lex_bool);
+        }
+        else if (type_id == 2)
+        {
+            dec(lex_int);
+            st_lex.push(lex_int);
+        }
+        else if (type_id == 3)
+        {
+            dec(lex_string);
+            st_lex.push(lex_string);
+        }
+        gettt();
+    }
+    else
+        throw "ident is absent!!!";
+    if (curr_lex.type == lex_assign)
+    {
+        gettt();
+        constanta();
+        poliz.push_back(Lexeme(lex_assign));
+    }
+}
+
+void Parser::constanta()
+{
+    if (curr_lex.type == lex_number || curr_lex.type == lex_string_literal
+        || curr_lex.type == lex_true || curr_lex.type == lex_false)
+    {
+        if (curr_lex.type == lex_number)
+        {
+            st_lex.push(lex_int);
+            poliz.push_back(Lexeme(lex_number, curr_lex.data));
+        }
+        if (curr_lex.type == lex_string_literal)
+        {
+            st_lex.push(lex_string);
+            poliz.push_back(Lexeme(lex_string_literal, curr_lex.data));
+        }
+        if (curr_lex.type == lex_false || curr_lex.type == lex_true)
+        {
+            st_lex.push(lex_bool);
+            poliz.push_back(Lexeme(lex_bool, curr_lex.type));
+        }
+        gettt();
+    } else
+        throw "wrong!!!!!";
+}
+
+bool Parser::operatorr()
+{
+    int p0, p1, p2, p3;
+    if (curr_lex.type == lex_if)
+    {
+        gettt();
+        if (curr_lex.type == lex_left_bracket)
+            gettt();
+        else
+            throw "( is absent!!!";
+        expr();
+        eq_bool();
+        p2 = poliz.size();
+        poliz.push_back(Lexeme());
+        poliz.push_back(Lexeme(poliz_fgo));
+        if (curr_lex.type == lex_right_bracket)
+            gettt();
+        else
+            throw "1) is absent!!!";
+        operatorr();
+        if (curr_lex.type == lex_else)
+        {
+            p3 = poliz.size();
+            poliz.push_back(Lexeme());
+            poliz.push_back(Lexeme(poliz_go));
+            poliz[p2] = Lexeme(poliz_label, poliz.size());
+            gettt();
+            operatorr();
+            poliz[p3] = Lexeme(poliz_label, poliz.size());
+        }
+        else
+            poliz[p2] = Lexeme(poliz_label, poliz.size());
+    }
+    else if (curr_lex.type == lex_while)
+    {
+        gettt();
+        if (curr_lex.type == lex_left_bracket)
+            gettt();
+        else
+            throw "( is absent!!!";
+        p0 = poliz.size();
+        expr();
+        eq_bool();
+        p1 = poliz.size();
+        st_while.push_back(p0);
+        poliz.push_back(Lexeme());
+        poliz.push_back(Lexeme(poliz_fgo));
+        if (curr_lex.type == lex_right_bracket)
+            gettt();
+        else
+            throw "2) is absent!!!";
+        operatorr();
+        poliz.push_back(Lexeme(poliz_label, p0));
+        poliz.push_back(Lexeme(poliz_go));
+        fin_while.push_back(poliz.size());
+        poliz[p1] = Lexeme(poliz_label, poliz.size());
+    }
+    else if (curr_lex.type == lex_read)
+    {
+        gettt();
+        if (curr_lex.type == lex_left_bracket)
+            gettt();
+        else
+            throw "( is absent!!!";
+        if (curr_lex.type == lex_ident)
+        {
+            check_id_in_read();
+            poliz.push_back(Lexeme(poliz_address, curr_lex.data));
+            gettt();
+        }
+        else
+            throw "ident is absent!!!";
+        if (curr_lex.type == lex_right_bracket)
+        {
+            poliz.push_back(Lexeme(lex_read));
+            gettt();
+        }
+        else
+            throw "3) is absent!!!";
+        if (curr_lex.type == lex_semicolon)
+            gettt();
+        else
+            throw "; is absent!!!";
+    }
+    else if (curr_lex.type == lex_write)
+    {
+        gettt();
+        if (curr_lex.type == lex_left_bracket)
+            gettt();
+        else
+            throw "( is absent!!!";
+        expr();
+        poliz.push_back(Lexeme(lex_write));
+        while (curr_lex.type == lex_comma)
+        {
+            gettt();
+            expr();
+            poliz.push_back(Lexeme(lex_write));
+        }
+        if (curr_lex.type == lex_right_bracket)
+            gettt();
+        else
+            throw "4) is absent!!!";
+        if (curr_lex.type == lex_semicolon)
+            curr_lex = lex_get(in);
+        else
+            throw "; is absent!!!";
+    }
+    else if (curr_lex.type == lex_left_curly)
+    {
+        gettt();
+        while (operatorr());
+        if (curr_lex.type == lex_right_curly)
+            gettt();
+        else
+            throw "} is absent!!!";
+    }
+    else if (curr_lex.type == lex_ident)
+    {
+        check_id();
+        poliz.push_back(Lexeme(poliz_address, curr_lex.data));
+        gettt();
+        ex();
+        if (curr_lex.type == lex_semicolon)
+            gettt();
+        else
+            throw "; is absent!!!";
+    }
+    else if (curr_lex.type == lex_semicolon)
+        gettt();
+    else if (curr_lex.type == lex_break)
+    {
+        gettt();
+        if (curr_lex.type == lex_semicolon)
+        {
+            poliz.push_back(Lexeme(lex_break));
+            gettt();
+        }
+        else
+            throw "; is absent!!!";
+    }
+    else return false;
+    return true;
+}
+
+void Parser::ex()
+{
+    if (curr_lex.type == lex_assign)
+    {
+        gettt();
+        e1();
+        eq_type();
+        poliz.push_back(Lexeme(lex_assign));
+    }
+    else
+        throw (curr_lex);
+}
+
+void Parser::expr()
+{
+    e1();
+    if (curr_lex.type == lex_less || curr_lex.type == lex_greater || curr_lex.type == lex_equal ||
+        curr_lex.type == lex_le || curr_lex.type == lex_ge || curr_lex.type == lex_ne)
+    {
+        st_lex.push(curr_lex.type);
+        gettt();
+        e1();
+        check_op();
+    }
+}
+
+void Parser::e1()
+{
+    terma();
+    while (curr_lex.type == lex_plus || curr_lex.type == lex_minus || curr_lex.type == lex_or)
+    {
+        st_lex.push(curr_lex.type);
+        gettt();
+        terma();
+        check_op();
+    }
+}
+
+void Parser::terma()
+{
+    factor();
+    while (curr_lex.type == lex_div || curr_lex.type == lex_mul || curr_lex.type == lex_and)
+    {
+        st_lex.push(curr_lex.type);
+        gettt();
+        factor();
+        check_op();
+    }
+}
+
+void Parser::factor()
+{
+    if (curr_lex.type == lex_ident)
+    {
+        check_id();
+        poliz.push_back(Lexeme(poliz_address, curr_lex.data));
+        gettt();
+    }
+    else if (curr_lex.type == lex_number)
+    {
+        //printf("0000");
+        st_lex.push(lex_int);
+        poliz.push_back(Lexeme(lex_number, curr_lex.data));
+        gettt();
+    }
+    else if (curr_lex.type == lex_string_literal)
+    {
+        st_lex.push(lex_string);
+        poliz.push_back(Lexeme(lex_string, curr_lex.data));
+        gettt();
+    }
+    else if (curr_lex.type == lex_true)
+    {
+        poliz.push_back(Lexeme(lex_true, 1));
+        st_lex.push(lex_bool);
+        gettt();
+    }
+    else if (curr_lex.type == lex_false)
+    {
+        poliz.push_back(Lexeme(lex_false, 0));
+        st_lex.push(lex_bool);
+        gettt();
+    }
+    else if (curr_lex.type == lex_not)
+    {
+        gettt();
+        factor();
+        check_not();
+    }
+    else if (curr_lex.type == lex_left_bracket)
+    {
+        gettt();
+        expr();
+        if (curr_lex.type == lex_right_bracket)
+            gettt();
+        else
+            throw "5) is absent!!!";
+    }
+}
+
+void Parser::dec(LexemeType type)
+{
+    int i;
+    while (!st_int.empty())
+    {
+        i = st_int.top();
+        st_int.pop();
+        if (idents[i].get_declare())
+        {
+            throw "twice";
+        }
+        else
+        {
+            //printf("66 %d 66", curr_lex.data);
+            idents[i].put_declare();
+            idents[i].put_type(type);
+            idents[i].put_value(curr_lex.data);
+        }
+    }
+}
+
+void Parser::eq_bool()
+{
+    if (st_lex.top() != lex_bool)
+    {
+        throw "expression is not boolean";
+        st_lex.pop();
+    }
+}
+
+void Parser::check_id_in_read()
+{
+    if (!idents[curr_lex.data].get_declare())
+        throw "not declared";
+    if (idents[curr_lex.data].get_type() == lex_bool)
+        throw "Identificator can't be boolean";
+}
+
+void Parser::check_id()
+{
+    if (idents[curr_lex.data].get_declare())
+        st_lex.push(idents[curr_lex.data].get_type());
+    else
+        throw "not declared";
+}
+
+void Parser::check_op()
+{
+    LexemeType t1, t2, op, r = lex_null;
+    t2 = st_lex.top();
+    st_lex.pop();
+    op = st_lex.top();
+    st_lex.pop();
+    t1 = st_lex.top();
+    st_lex.pop();
+    if (t1 != t2)
+    {
+        //printf("abx %d %d \n", t1, t2);
+        throw "wrong 1 types are in operation";
+    }
+    if (op == lex_minus || op == lex_mul || op == lex_div || op == lex_mod)
+    {
+        r = lex_int;
+        if (t1 != r)
+        {
+            throw "wrong 2 types are in operation";
+        }
+    }
+    else if (op == lex_and || op == lex_or)
+    {
+        r = lex_bool;
+        if (t1 != r)
+        {
+            throw "wrong 3 types are in operation";
+        }
+    }
+    else if (op == lex_equal || op == lex_ne || op == lex_less ||
+               op == lex_le || op == lex_greater || op == lex_ge)
+    {
+        r = lex_bool;
+        if (t1 == lex_bool)
+        {
+            throw "wrong 4 types are in operation";
+        }
+    }
+    else if (op == lex_plus)
+    {
+        if (t1 == lex_bool)
+        {
+            throw "wrong 5 types are in operation";
+        }
+        r = t1;
+    }
+    if (r != lex_null)
+    {
+        st_lex.push(r);
+    }
+    else
+    {
+        throw "wrong types are in operation";
+    }
+    poliz.push_back(Lexeme(op));
+}
+
+void Parser::eq_type()
+{
+    LexemeType t;
+    t = st_lex.top();
+    st_lex.pop();
+    if (t != st_lex.top())
+        throw "wrong types are in assign";
+    st_lex.pop();
+}
+
+void Parser::check_not()
+{
+    if (st_lex.top() != lex_bool)
+        throw "wrong type is in not";
+    poliz.push_back(Lexeme(lex_not));
+}
+
+int main()
+{
+    Parser marpar;
+    try { marpar.analyze(); }
+    catch (int err)
+    {
+        cout << err << endl;
+        return 1;
+    }
+    catch (const char *marchar)
+    {
+        cout << marchar;
+        return 99;
+    }
+    return 0;
+}
